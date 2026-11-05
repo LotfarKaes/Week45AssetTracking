@@ -1,0 +1,7 @@
+# .NET build output
+bin/
+obj/
+.vs/
+*.user
+Week45AssetTracking/assets.json
+Week45AssetTracking/asset-report.txt
