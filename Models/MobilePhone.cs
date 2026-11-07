@@ -20,4 +20,7 @@ public class MobilePhone : Asset
 
     /// <inheritdoc />
     public override string AssetType => "Mobile Phone";
+
+    /// <inheritdoc />
+    public override AssetTypeKind GetAssetTypeKind() => AssetTypeKind.MobilePhone;
 }

@@ -4,7 +4,7 @@ using Week45AssetTracking.Services;
 
 // =============================================================================
 // Weekly Mini Project — Asset Tracking System
-// LEVEL 1 — Basic classes, objects, constructors, List<Asset>
+// LEVEL 2 — Sorting + end-of-life warnings (on top of Level 1)
 // =============================================================================
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -12,39 +12,31 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 AssetManager manager = new AssetManager();
 
 ConsoleUiHelper.WriteBanner(
-    "Company Asset Tracking — Level 1",
-    "Add computers and mobile phones, then view your list");
+    "Company Asset Tracking — Level 2",
+    "Sorted lists and color warnings when assets near their 3-year lifespan");
 
 ConsoleUiHelper.WriteMuted(
-    "Tip: type exit at any prompt to quit (works as EXIT, quit, q, with spaces too).");
-Console.WriteLine();
+    "Tip: type exit at any prompt to quit (EXIT, quit, q — spaces and caps OK).");
+
+if (InputHelper.ReadYesNo("Load sample assets from the assignment (with RED/YELLOW demos)? (y/n): ", defaultYes: true))
+{
+    manager.SeedSampleData();
+    Console.WriteLine();
+}
 
 while (!InputHelper.ExitRequested)
 {
-    ConsoleUiHelper.WriteTitle("Add a new asset");
-    Console.WriteLine("  1 - Computer (laptop or desktop)");
-    Console.WriteLine("  2 - Mobile phone");
-    Console.WriteLine();
+    RunAddAssetSession(manager);
 
-    int kind = InputHelper.ReadChoice(1, 2);
     if (InputHelper.ExitRequested)
     {
         break;
     }
 
+    manager.ShowSortedWithEndOfLifeHighlights();
     Console.WriteLine();
 
-    Asset? asset = kind == 1 ? ReadComputerFromUser() : ReadMobilePhoneFromUser();
-    if (InputHelper.ExitRequested || asset is null)
-    {
-        break;
-    }
-
-    manager.AddAsset(asset);
-    ConsoleUiHelper.WriteSuccess("Asset added to the list.");
-    Console.WriteLine();
-
-    if (!InputHelper.ReadYesNo("Add another asset now? (y/n): "))
+    if (!InputHelper.ReadYesNo("Continue adding or viewing assets? (y/n): "))
     {
         break;
     }
@@ -54,16 +46,50 @@ while (!InputHelper.ExitRequested)
 
 if (!InputHelper.ExitRequested)
 {
-    manager.ShowAllAssets();
-    Console.WriteLine();
-    ConsoleUiHelper.WriteSuccess("Level 1 complete — assets are stored in List<Asset> via AssetManager.");
+    ConsoleUiHelper.WriteSuccess("Thank you — Level 2 features: LINQ sort + end-of-life colors.");
 }
 
 Console.WriteLine();
 Console.Write("Press Enter to close...");
 Console.ReadLine();
 
-// ----- Read one asset from the console -----
+// ----- Add assets (Level 1 flow) -----
+
+static void RunAddAssetSession(AssetManager manager)
+{
+    while (!InputHelper.ExitRequested)
+    {
+        ConsoleUiHelper.WriteTitle("Add a new asset");
+        Console.WriteLine("  1 - Computer (laptop or desktop)");
+        Console.WriteLine("  2 - Mobile phone");
+        Console.WriteLine();
+
+        int kind = InputHelper.ReadChoice(1, 2);
+        if (InputHelper.ExitRequested)
+        {
+            return;
+        }
+
+        Console.WriteLine();
+
+        Asset? asset = kind == 1 ? ReadComputerFromUser() : ReadMobilePhoneFromUser();
+        if (InputHelper.ExitRequested || asset is null)
+        {
+            return;
+        }
+
+        manager.AddAsset(asset);
+        ConsoleUiHelper.WriteSuccess("Asset added.");
+        Console.WriteLine();
+
+        if (!InputHelper.ReadYesNo("Add another asset in this session? (y/n): "))
+        {
+            return;
+        }
+
+        Console.WriteLine();
+    }
+}
 
 static Computer? ReadComputerFromUser()
 {
@@ -110,9 +136,7 @@ static Computer? ReadComputerFromUser()
         return null;
     }
 
-    bool isLaptop = form == 1;
-
-    return new Computer(brand, model, purchaseDate, priceUsd, priceLocal, office, isLaptop);
+    return new Computer(brand, model, purchaseDate, priceUsd, priceLocal, office, form == 1);
 }
 
 static MobilePhone? ReadMobilePhoneFromUser()

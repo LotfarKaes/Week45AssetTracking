@@ -27,4 +27,8 @@ public class Computer : Asset
 
     /// <inheritdoc />
     public override string AssetType => IsLaptop ? "Laptop" : "Desktop";
+
+    /// <inheritdoc />
+    public override AssetTypeKind GetAssetTypeKind() =>
+        IsLaptop ? AssetTypeKind.Laptop : AssetTypeKind.Desktop;
 }

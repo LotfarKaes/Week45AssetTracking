@@ -1,3 +1,5 @@
+using Week45AssetTracking.Models;
+
 namespace Week45AssetTracking.Helpers;
 
 /// <summary>
@@ -44,6 +46,48 @@ public static class ConsoleUiHelper
 
         WriteSeparator('=');
         Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Level 2 — prints one asset with yellow/red/magenta styling when end-of-life is near.
+    /// </summary>
+    public static void WriteAssetLine(Asset asset, int? listIndex = null)
+    {
+        EndOfLifeStatus status = asset.GetEndOfLifeStatus();
+        string prefix = listIndex.HasValue ? $"  {listIndex}. " : "  ";
+        string line = prefix + asset.ToDisplayLine();
+
+        string alert = status switch
+        {
+            EndOfLifeStatus.YellowWarning =>
+                "  >> YELLOW: less than 3 months until end-of-life <<",
+            EndOfLifeStatus.RedWarning =>
+                "  >> RED: less than 6 months until end-of-life <<",
+            EndOfLifeStatus.Expired =>
+                "  >> EXPIRED: past the 3-year lifespan <<",
+            _ => string.Empty
+        };
+
+        if (alert.Length > 0)
+        {
+            line = $"{line}{Environment.NewLine}{alert}";
+        }
+
+        switch (status)
+        {
+            case EndOfLifeStatus.YellowWarning:
+                WriteWithColors(line, ConsoleColor.Black, ConsoleColor.Yellow);
+                break;
+            case EndOfLifeStatus.RedWarning:
+                WriteWithColors(line, ConsoleColor.White, ConsoleColor.DarkRed);
+                break;
+            case EndOfLifeStatus.Expired:
+                WriteWithColors(line, ConsoleColor.Yellow, ConsoleColor.DarkMagenta);
+                break;
+            default:
+                WriteInfo(line);
+                break;
+        }
     }
 
     private static void WriteWithColors(string text, ConsoleColor foreground, ConsoleColor background)

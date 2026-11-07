@@ -157,4 +157,12 @@ public static class InputHelper
             ConsoleUiHelper.WriteWarning("Please answer y/yes or n/no (or exit).");
         }
     }
+
+    public static void PressEnterToContinue()
+    {
+        Console.WriteLine();
+        Console.Write("Press Enter to continue...");
+        Console.ReadLine();
+        Console.WriteLine();
+    }
 }
