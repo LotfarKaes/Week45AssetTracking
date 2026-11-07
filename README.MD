@@ -1,84 +1,80 @@
-# Week 4–5 — Asset Tracking System (Levels 1–2)
+# Week 4–5 — Asset Tracking System (Levels 1–3)
 
-Console application in **C#** and **.NET 10** for the *Weekly Mini Project — Asset Tracking* assignment.
+Console application in **C#** and **.NET 8** for the *Weekly Mini Project — Asset Tracking* assignment.
 
-**Current milestone:** Level 1 + **Level 2**. Push Level 2 as its own commit after Level 1 is on GitHub. Level 3 (offices + currency) comes next.
+**Current milestone:** Levels **1**, **2**, and **3**. Push each level as its own git commit. Level 4 (IDs, menu) is next.
 
 ---
 
 ## Prerequisites
 
-1. [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-2. Terminal in this folder:
-
 ```bash
 dotnet run
 ```
 
----
-
-## Assignment levels in this folder
-
-| Level | Status | What it adds |
-|-------|--------|----------------|
-| **1** | Done | `Asset`, `Computer`, `MobilePhone`, `List<Asset>`, constructors |
-| **2** | Done | Sort by type + date, 3-year lifespan, **yellow/red** EOL highlights |
-| **3** | Next | SEK/USD/TRY, currency conversion |
-| **4** | Planned | IDs, age, menu |
-| **5** | Planned | JSON files |
+(from this folder, with [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) installed)
 
 ---
 
-## Level 2 — Sorting & end-of-life
+## Progress
 
-### Business rules
+| Level | Status | Summary |
+|-------|--------|---------|
+| **1** | Done | Classes, `List<Asset>`, constructors |
+| **2** | Done | Sort by type + date, end-of-life colors |
+| **3** | Done | Offices SEK/USD/TRY, USD → local conversion, sort by office |
+| **4** | Next | Unique IDs, age, menu system |
+| **5** | Planned | JSON persistence |
 
-- Every asset lives **3 years** from the purchase date.
-- **Yellow** row: **less than 3 months** until end-of-life.
-- **Red** row: **less than 6 months** left (but not in the yellow window).
-- **Magenta-style** row: lifespan already **expired**.
+---
 
-### Sorting (LINQ)
+## Level 3 — Multi-office & currency
 
-Assets are shown in this order:
+### Offices
 
-1. **Asset type** — Desktop, then Laptop, then Mobile Phone (`AssetTypeKind` enum).
-2. **Purchase date** — oldest first within each type.
+| Office | Currency |
+|--------|----------|
+| Sweden | SEK |
+| USA | USD |
+| Turkey | TRY |
+
+Each asset is linked to an `OfficeLocation` enum value (not a free-text string).
+
+### Currency conversion
+
+1. You enter **price in USD** when adding an asset.
+2. `CurrencyService` converts to the office currency:
+   - **Live rates:** ECB daily XML (same idea as `LiveCurrency.cs` in the course pack).
+   - **Fallback:** built-in rates if the network fails (app still runs offline).
+
+After adding, the app shows the calculated local amount, e.g. `SEK 15,750.00`.
+
+### Sorting (Level 3 requirement)
 
 ```csharp
-_assets.OrderBy(a => a.GetAssetTypeKind()).ThenBy(a => a.PurchaseDate)
+_assets.OrderBy(a => a.OfficeDisplayName).ThenBy(a => a.PurchaseDate)
 ```
 
-### Color output
+Choose **option 2** (or **3**) in the view menu after adding assets.
 
-`ConsoleUiHelper.WriteAssetLine` reads `asset.GetEndOfLifeStatus()` and applies console colors, then **restores** the default colors (so the rest of the text stays normal).
+Level **2** sort (type → date) stays available as **option 1**.
 
-### Sample data
+### Refresh rates
 
-On startup you can load **sample assets** from the PDF (MacBook, ThinkPad, iPhone, etc.). Two extra rows are dated so you see **RED** and **YELLOW** warnings immediately without waiting three years.
-
-### Program flow (Level 2)
-
-1. Optional **sample data**.
-2. **Add** computers or phones (same as Level 1).
-3. Show **sorted list with color alerts**.
-4. Ask whether to **continue** — add more or view again.
-
-`exit` / `quit` / `q` still works on **any** input.
+When asked, the app can **re-download** ECB rates and **recalculate** every `PriceLocal` from stored USD values.
 
 ---
 
-## Level 1 recap (still included)
+## Level 2 recap
 
-| Field | Example |
-|-------|---------|
-| Brand | Apple |
-| Model | MacBook Pro |
-| Purchase date | 2024-03-15 |
-| Price USD | 1500 |
-| Price local | 15000 |
-| Office | Sweden |
-| Asset type | Laptop |
+- 3-year lifespan, **yellow** (&lt; 3 months), **red** (&lt; 6 months), expired styling.
+- Sort: `AssetTypeKind` → purchase date.
+
+---
+
+## Level 1 recap
+
+- `Asset`, `Computer`, `MobilePhone`, properties from the PDF.
 
 ---
 
@@ -88,36 +84,38 @@ On startup you can load **sample assets** from the PDF (MacBook, ThinkPad, iPhon
 Week45AssetTracking/
 ├── Program.cs
 ├── Models/
-│   ├── Asset.cs               # Lifespan + GetEndOfLifeStatus (Level 2)
-│   ├── AssetTypeKind.cs       # Sort order
+│   ├── Asset.cs
+│   ├── OfficeLocation.cs      # Level 3
+│   ├── OfficeInfo.cs
+│   ├── AssetTypeKind.cs
 │   ├── EndOfLifeStatus.cs
 │   ├── Computer.cs
 │   └── MobilePhone.cs
 ├── Services/
-│   └── AssetManager.cs        # Sort, sample data, highlighted list
+│   ├── AssetManager.cs
+│   └── CurrencyService.cs     # Level 3
 └── Helpers/
-    ├── ConsoleUiHelper.cs     # WriteAssetLine colors
-    └── InputHelper.cs
+    ├── ConsoleUiHelper.cs
+    └── InputHelper.cs         # ReadOfficeLocation()
 ```
 
 ---
 
-## How to test Level 2 (for grading)
+## Test Level 3 (grading checklist)
 
-1. Run `dotnet run` and accept **sample data** (`y`).
-2. Press **n** when asked to add more in the first session (or add your own assets).
-3. Confirm the list is **grouped by type** and **sorted by date** within each group.
-4. Find **RED** (Dell OptiPlex) and **YELLOW** (Google Pixel) lines in the sample set.
-5. Type **`exit`** at a prompt — app closes without crashing.
-6. Answer **n** to “Continue adding…” to finish.
+1. Run with **sample data** — verify **SEK**, **USD**, **TRY** labels on each line.
+2. Add a asset for **Turkey**, USD `900` — confirm **TRY** local price appears.
+3. View list with **option 2** — assets grouped by **Sweden → Turkey → USA** (alphabetical office names).
+4. Answer **y** to refresh rates — local prices update (or fallback message if offline).
+5. Type **exit** during office selection — clean shutdown.
 
 ---
 
-## Git — Level 2 commit
+## Git — Level 3 commit
 
 ```bash
 git add Week45AssetTracking/
-git commit -m "Week45 Level 2: sort by type/date, end-of-life yellow/red highlights"
+git commit -m "Week45 Level 3: offices SEK/USD/TRY, currency conversion, sort by office"
 git push
 ```
 
@@ -125,14 +123,14 @@ git push
 
 ## Troubleshooting
 
-| Problem | What to try |
-|--------|-------------|
-| No colors | Use Windows Terminal or a modern console. |
-| No RED/YELLOW in sample | Run again with sample data `y`; demo dates are calculated from **today**. |
-| `'dotnet' not recognized` | Install .NET 10 SDK and restart the terminal. |
+| Issue | Fix |
+|-------|-----|
+| Live rates fail | Normal offline — fallback rates still convert. |
+| USA local equals USD | Expected: USD office uses 1:1. |
+| No colors | Use Windows Terminal. |
 
 ---
 
-**Author:** Lotfar Kaes — Asset Tracking, Levels 1–2.
+**Author:** Lotfar Kaes — Asset Tracking, Levels 1–3.
 
-When Level 2 is pushed, ask for **Level 3** to add official offices and currency conversion.
+Reply **Level 4** when this commit is pushed.

@@ -15,7 +15,7 @@ public class Computer : Asset
         DateTime purchaseDate,
         decimal priceUsd,
         decimal priceLocal,
-        string office,
+        OfficeLocation office,
         bool isLaptop)
         : base(brand, model, purchaseDate, priceUsd, priceLocal, office)
     {

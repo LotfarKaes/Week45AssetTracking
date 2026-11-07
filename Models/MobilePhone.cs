@@ -13,7 +13,7 @@ public class MobilePhone : Asset
         DateTime purchaseDate,
         decimal priceUsd,
         decimal priceLocal,
-        string office)
+        OfficeLocation office)
         : base(brand, model, purchaseDate, priceUsd, priceLocal, office)
     {
     }

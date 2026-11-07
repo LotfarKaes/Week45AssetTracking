@@ -1,3 +1,5 @@
+using Week45AssetTracking.Models;
+
 namespace Week45AssetTracking.Helpers;
 
 /// <summary>
@@ -155,6 +157,28 @@ public static class InputHelper
             }
 
             ConsoleUiHelper.WriteWarning("Please answer y/yes or n/no (or exit).");
+        }
+    }
+
+    /// <summary>Level 3 — pick Sweden, USA, or Turkey (by number or name).</summary>
+    public static OfficeLocation ReadOfficeLocation()
+    {
+        while (true)
+        {
+            OfficeInfo.WriteOfficeMenu();
+            string? text = ReadLineOrExit("Office (1-3 or country name): ");
+            if (text is null)
+            {
+                return default;
+            }
+
+            OfficeLocation? office = OfficeInfo.TryParse(text);
+            if (office.HasValue)
+            {
+                return office.Value;
+            }
+
+            ConsoleUiHelper.WriteWarning("Please choose 1, 2, 3, or type Sweden / USA / Turkey.");
         }
     }
 

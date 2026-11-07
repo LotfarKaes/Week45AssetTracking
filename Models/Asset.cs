@@ -16,7 +16,7 @@ public abstract class Asset
         DateTime purchaseDate,
         decimal priceUsd,
         decimal priceLocal,
-        string office)
+        OfficeLocation office)
     {
         Brand = brand;
         Model = model;
@@ -41,8 +41,14 @@ public abstract class Asset
     /// <summary>Same purchase expressed in the office local currency (entered or calculated later).</summary>
     public decimal PriceLocal { get; set; }
 
-    /// <summary>Office country or site, e.g. Sweden.</summary>
-    public string Office { get; set; }
+    /// <summary>Which company office owns this asset (Level 3).</summary>
+    public OfficeLocation Office { get; set; }
+
+    /// <summary>Readable office name, e.g. Sweden.</summary>
+    public string OfficeDisplayName => OfficeInfo.GetDisplayName(Office);
+
+    /// <summary>Local currency for this office, e.g. SEK.</summary>
+    public string LocalCurrencyCode => OfficeInfo.GetCurrencyCode(Office);
 
     /// <summary>Human-readable type: Laptop, Desktop, Mobile Phone, etc.</summary>
     public abstract string AssetType { get; }
@@ -89,9 +95,9 @@ public abstract class Asset
     public virtual string ToDisplayLine()
     {
         return
-            $"{AssetType} | {Brand} {Model} | Office: {Office} | " +
+            $"{AssetType} | {Brand} {Model} | Office: {OfficeDisplayName} | " +
             $"Purchased: {PurchaseDate:yyyy-MM-dd} | End-of-life: {EndOfLifeDate:yyyy-MM-dd} | " +
-            $"USD {PriceUsd:N2} | Local {PriceLocal:N2}";
+            $"USD {PriceUsd:N2} | {LocalCurrencyCode} {PriceLocal:N2}";
     }
 
     /// <inheritdoc />
