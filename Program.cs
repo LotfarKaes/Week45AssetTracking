@@ -4,26 +4,31 @@ using Week45AssetTracking.Services;
 
 // =============================================================================
 // Weekly Mini Project — Asset Tracking System
-// LEVEL 4 — IDs, age, interface, menu (Levels 1–3 included)
+// LEVEL 5 — JSON save/load, auto-save, export (Levels 1–4 included)
 // =============================================================================
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 CurrencyService currencyService = new();
 AssetManager manager = new AssetManager(currencyService);
+AssetFileService fileService = new AssetFileService();
 
 ConsoleUiHelper.WriteBanner(
-    "Company Asset Tracking — Level 4",
-    "Menu-driven app with unique IDs, age tracking, and full OOP design");
+    "Company Asset Tracking — Level 5",
+    "Full menu + assets.json persistence and text report export");
 
 ConsoleUiHelper.WriteMuted("Tip: type exit at any prompt (EXIT, quit, q — any spacing).");
 
 currencyService.TryFetchLiveRates();
 Console.WriteLine();
 
-if (InputHelper.ReadYesNo("Load sample assets (IDs #1–#8 with EOL demos)? (y/n): ", defaultYes: true))
+TryLoadOnStartup(manager, fileService);
+
+if (!manager.HasAssets &&
+    InputHelper.ReadYesNo("Load sample assets (IDs #1–#8)? (y/n): ", defaultYes: true))
 {
     manager.SeedSampleData();
+    AutoSave(manager, fileService);
     Console.WriteLine();
 }
 
@@ -32,7 +37,7 @@ bool running = true;
 while (running && !InputHelper.ExitRequested)
 {
     PrintMainMenu();
-    int choice = InputHelper.ReadMainMenuChoice(0, 9);
+    int choice = InputHelper.ReadMainMenuChoice(0, 12);
 
     if (InputHelper.ExitRequested || choice == 0)
     {
@@ -45,7 +50,7 @@ while (running && !InputHelper.ExitRequested)
     switch (choice)
     {
         case 1:
-            HandleAddAsset(manager);
+            HandleAddAsset(manager, fileService);
             break;
         case 2:
             manager.ShowSortedWithEndOfLifeHighlights(
@@ -66,10 +71,10 @@ while (running && !InputHelper.ExitRequested)
             HandleViewById(manager);
             break;
         case 6:
-            HandleEditById(manager);
+            HandleEditById(manager, fileService);
             break;
         case 7:
-            HandleRemoveById(manager);
+            HandleRemoveById(manager, fileService);
             break;
         case 8:
             manager.ShowStatistics();
@@ -78,7 +83,20 @@ while (running && !InputHelper.ExitRequested)
         case 9:
             currencyService.TryFetchLiveRates();
             manager.RecalculateAllLocalPrices();
+            AutoSave(manager, fileService);
             ConsoleUiHelper.WriteSuccess("Local prices recalculated from USD.");
+            InputHelper.PressEnterToContinue();
+            break;
+        case 10:
+            TrySaveCatalog(manager, fileService);
+            InputHelper.PressEnterToContinue();
+            break;
+        case 11:
+            TryLoadCatalog(manager, fileService, replaceExisting: true);
+            InputHelper.PressEnterToContinue();
+            break;
+        case 12:
+            HandleExportReport(manager, fileService);
             InputHelper.PressEnterToContinue();
             break;
     }
@@ -86,12 +104,109 @@ while (running && !InputHelper.ExitRequested)
 
 if (!InputHelper.ExitRequested)
 {
+    AutoSave(manager, fileService);
     ConsoleUiHelper.WriteSuccess("Thank you for using Asset Tracking. Goodbye!");
 }
 
 Console.WriteLine();
 Console.Write("Press Enter to close...");
 Console.ReadLine();
+
+// ----- File helpers (Level 5) -----
+
+static void TryLoadOnStartup(AssetManager manager, AssetFileService fileService)
+{
+    if (!fileService.FileExists())
+    {
+        return;
+    }
+
+    if (InputHelper.ReadYesNo($"Found {AssetFileService.DefaultFileName}. Load saved assets? (y/n): "))
+    {
+        TryLoadCatalog(manager, fileService, replaceExisting: true);
+    }
+
+    Console.WriteLine();
+}
+
+static void TrySaveCatalog(AssetManager manager, AssetFileService fileService)
+{
+    try
+    {
+        AssetCatalogFile catalog = manager.ToCatalogFile();
+        fileService.Save(catalog);
+        ConsoleUiHelper.WriteSuccess(
+            $"Saved {catalog.Assets.Count} asset(s) to {AssetFileService.DefaultFileName}.");
+    }
+    catch (Exception ex)
+    {
+        ConsoleUiHelper.WriteError($"Save failed: {ex.Message}");
+    }
+}
+
+static void TryLoadCatalog(AssetManager manager, AssetFileService fileService, bool replaceExisting)
+{
+    if (!fileService.FileExists())
+    {
+        ConsoleUiHelper.WriteWarning(
+            $"No {AssetFileService.DefaultFileName} yet — use menu 10 to save first.");
+        return;
+    }
+
+    try
+    {
+        AssetCatalogFile catalog = fileService.Load();
+        int countBefore = manager.Count;
+
+        manager.LoadFromCatalog(catalog, replaceExisting, out List<string> errors);
+
+        int loaded = replaceExisting ? manager.Count : manager.Count - countBefore;
+
+        if (loaded > 0 || (replaceExisting && catalog.Assets.Count == 0))
+        {
+            ConsoleUiHelper.WriteSuccess(
+                $"Catalog loaded — {manager.Count} asset(s) in memory. Next ID: {manager.NextId}.");
+        }
+        else
+        {
+            ConsoleUiHelper.WriteWarning("Nothing new was imported.");
+        }
+
+        foreach (string error in errors)
+        {
+            ConsoleUiHelper.WriteWarning(error);
+        }
+    }
+    catch (Exception ex)
+    {
+        ConsoleUiHelper.WriteError($"Load failed: {ex.Message}");
+    }
+}
+
+static void AutoSave(AssetManager manager, AssetFileService fileService)
+{
+    try
+    {
+        fileService.Save(manager.ToCatalogFile());
+        ConsoleUiHelper.WriteMuted($"(Auto-saved to {AssetFileService.DefaultFileName})");
+    }
+    catch
+    {
+        ConsoleUiHelper.WriteWarning("Auto-save failed — use menu 10 to save manually.");
+    }
+}
+
+static void HandleExportReport(AssetManager manager, AssetFileService fileService)
+{
+    if (!manager.HasAssets)
+    {
+        ConsoleUiHelper.WriteWarning("Add or load assets before exporting a report.");
+        return;
+    }
+
+    List<Asset> sorted = manager.GetSortedByOfficeThenDate().ToList();
+    fileService.ExportReport(sorted);
+}
 
 // ----- Menu -----
 
@@ -108,13 +223,16 @@ static void PrintMainMenu()
     Console.WriteLine("  7  - Remove asset by ID");
     Console.WriteLine("  8  - Statistics dashboard");
     Console.WriteLine("  9  - Refresh currency rates");
-    Console.WriteLine("  0  - Exit");
+    Console.WriteLine(" 10  - Save catalog to JSON               [Level 5]");
+    Console.WriteLine(" 11  - Load catalog from JSON");
+    Console.WriteLine(" 12  - Export text report");
+    Console.WriteLine("  0  - Exit (auto-saves on quit)");
     Console.WriteLine();
 }
 
 // ----- Handlers -----
 
-static void HandleAddAsset(AssetManager manager)
+static void HandleAddAsset(AssetManager manager, AssetFileService fileService)
 {
     ConsoleUiHelper.WriteTitle("Add asset");
     Console.WriteLine("  1 - Computer (laptop / desktop)");
@@ -131,15 +249,15 @@ static void HandleAddAsset(AssetManager manager)
 
     if (kind == 1)
     {
-        TryAddComputer(manager);
+        TryAddComputer(manager, fileService);
     }
     else
     {
-        TryAddMobilePhone(manager);
+        TryAddMobilePhone(manager, fileService);
     }
 }
 
-static void TryAddComputer(AssetManager manager)
+static void TryAddComputer(AssetManager manager, AssetFileService fileService)
 {
     string? brand = InputHelper.ReadLineOrExit("Brand: ");
     if (brand is null)
@@ -183,9 +301,11 @@ static void TryAddComputer(AssetManager manager)
 
     ConsoleUiHelper.WriteSuccess(
         $"Saved as #{computer.Id}. Local: {computer.LocalCurrencyCode} {computer.PriceLocal:N2} | Age: {computer.AgeDescription}");
+
+    AutoSave(manager, fileService);
 }
 
-static void TryAddMobilePhone(AssetManager manager)
+static void TryAddMobilePhone(AssetManager manager, AssetFileService fileService)
 {
     string? brand = InputHelper.ReadLineOrExit("Brand: ");
     if (brand is null)
@@ -221,6 +341,8 @@ static void TryAddMobilePhone(AssetManager manager)
 
     ConsoleUiHelper.WriteSuccess(
         $"Saved as #{phone.Id}. Local: {phone.LocalCurrencyCode} {phone.PriceLocal:N2} | Age: {phone.AgeDescription}");
+
+    AutoSave(manager, fileService);
 }
 
 static void HandleSearch(AssetManager manager)
@@ -258,7 +380,7 @@ static void HandleViewById(AssetManager manager)
     InputHelper.PressEnterToContinue();
 }
 
-static void HandleEditById(AssetManager manager)
+static void HandleEditById(AssetManager manager, AssetFileService fileService)
 {
     int id = InputHelper.ReadAssetId("Asset ID to edit: ");
     if (InputHelper.ExitRequested)
@@ -325,10 +447,11 @@ static void HandleEditById(AssetManager manager)
     }
 
     ConsoleUiHelper.WriteSuccess($"Asset #{asset.Id} updated. Age is now {asset.AgeDescription}.");
+    AutoSave(manager, fileService);
     InputHelper.PressEnterToContinue();
 }
 
-static void HandleRemoveById(AssetManager manager)
+static void HandleRemoveById(AssetManager manager, AssetFileService fileService)
 {
     int id = InputHelper.ReadAssetId("Asset ID to remove: ");
     if (InputHelper.ExitRequested)
@@ -354,5 +477,6 @@ static void HandleRemoveById(AssetManager manager)
 
     manager.RemoveById(id);
     ConsoleUiHelper.WriteSuccess($"Asset #{id} removed.");
+    AutoSave(manager, fileService);
     InputHelper.PressEnterToContinue();
 }

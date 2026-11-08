@@ -29,7 +29,130 @@ public class AssetManager
 
     public Asset? FindById(int id) => _assets.FirstOrDefault(a => a.Id == id);
 
+    public bool IdExists(int id) => _assets.Any(a => a.Id == id);
+
     private int AllocateId() => _nextId++;
+
+    /// <summary>Level 5 — rebuild in-memory list from disk (duplicate IDs are rejected).</summary>
+    public void ReplaceCatalog(IEnumerable<Asset> assets, int nextId)
+    {
+        _assets.Clear();
+        _assets.AddRange(assets);
+        _nextId = Math.Max(1, nextId);
+
+        foreach (Asset asset in _assets)
+        {
+            _nextId = Math.Max(_nextId, asset.Id + 1);
+        }
+    }
+
+    public AssetCatalogFile ToCatalogFile()
+    {
+        AssetCatalogFile catalog = new() { NextId = _nextId };
+
+        foreach (Asset asset in _assets)
+        {
+            AssetRecord record = new()
+            {
+                Id = asset.Id,
+                Brand = asset.Brand,
+                Model = asset.Model,
+                PurchaseDate = asset.PurchaseDate,
+                PriceUsd = asset.PriceUsd,
+                PriceLocal = asset.PriceLocal,
+                Office = asset.Office
+            };
+
+            switch (asset)
+            {
+                case Computer computer:
+                    record.AssetKind = "Computer";
+                    record.IsLaptop = computer.IsLaptop;
+                    break;
+                case MobilePhone:
+                    record.AssetKind = "MobilePhone";
+                    break;
+                default:
+                    record.AssetKind = asset.GetType().Name;
+                    break;
+            }
+
+            catalog.Assets.Add(record);
+        }
+
+        return catalog;
+    }
+
+    /// <param name="replaceExisting">True = replace list; false = merge and skip duplicate IDs.</param>
+    public void LoadFromCatalog(AssetCatalogFile catalog, bool replaceExisting, out List<string> errors)
+    {
+        errors = new List<string>();
+        List<Asset> imported = new();
+        HashSet<int> idsInFile = new();
+
+        foreach (AssetRecord record in catalog.Assets)
+        {
+            if (!idsInFile.Add(record.Id))
+            {
+                errors.Add($"Skipped duplicate ID #{record.Id} inside the file.");
+                continue;
+            }
+
+            if (!replaceExisting && IdExists(record.Id))
+            {
+                errors.Add($"Skipped ID #{record.Id} — already exists in memory.");
+                continue;
+            }
+
+            Asset? asset = CreateFromRecord(record);
+            if (asset is null)
+            {
+                errors.Add($"Could not read ID #{record.Id} (unknown type '{record.AssetKind}').");
+                continue;
+            }
+
+            imported.Add(asset);
+        }
+
+        if (replaceExisting)
+        {
+            ReplaceCatalog(imported, catalog.NextId);
+        }
+        else
+        {
+            _assets.AddRange(imported);
+            _nextId = Math.Max(_nextId, catalog.NextId);
+            foreach (Asset asset in _assets)
+            {
+                _nextId = Math.Max(_nextId, asset.Id + 1);
+            }
+        }
+    }
+
+    public Asset? CreateFromRecord(AssetRecord record)
+    {
+        return record.AssetKind switch
+        {
+            "Computer" => new Computer(
+                record.Id,
+                record.Brand,
+                record.Model,
+                record.PurchaseDate,
+                record.PriceUsd,
+                record.PriceLocal,
+                record.Office,
+                record.IsLaptop ?? true),
+            "MobilePhone" => new MobilePhone(
+                record.Id,
+                record.Brand,
+                record.Model,
+                record.PurchaseDate,
+                record.PriceUsd,
+                record.PriceLocal,
+                record.Office),
+            _ => null
+        };
+    }
 
     public Computer AddComputer(
         string brand,
