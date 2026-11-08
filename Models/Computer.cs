@@ -10,6 +10,7 @@ public class Computer : Asset
     /// Creates a computer asset. Set <paramref name="isLaptop"/> to false for a desktop.
     /// </summary>
     public Computer(
+        int id,
         string brand,
         string model,
         DateTime purchaseDate,
@@ -17,7 +18,7 @@ public class Computer : Asset
         decimal priceLocal,
         OfficeLocation office,
         bool isLaptop)
-        : base(brand, model, purchaseDate, priceUsd, priceLocal, office)
+        : base(id, brand, model, purchaseDate, priceUsd, priceLocal, office)
     {
         IsLaptop = isLaptop;
     }

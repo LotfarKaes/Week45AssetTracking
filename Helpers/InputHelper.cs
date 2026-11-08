@@ -182,6 +182,31 @@ public static class InputHelper
         }
     }
 
+    /// <summary>Level 4 — main menu option.</summary>
+    public static int ReadMainMenuChoice(int minInclusive, int maxInclusive)
+    {
+        return ReadChoice(minInclusive, maxInclusive);
+    }
+
+    public static int ReadAssetId(string prompt)
+    {
+        while (true)
+        {
+            string? text = ReadLineOrExit(prompt);
+            if (text is null)
+            {
+                return -1;
+            }
+
+            if (int.TryParse(text, out int id) && id > 0)
+            {
+                return id;
+            }
+
+            ConsoleUiHelper.WriteWarning("Enter a positive asset ID (or type exit).");
+        }
+    }
+
     public static void PressEnterToContinue()
     {
         Console.WriteLine();

@@ -4,12 +4,13 @@ using Week45AssetTracking.Models;
 namespace Week45AssetTracking.Services;
 
 /// <summary>
-/// Level 1 — list. Level 2 — type sort + EOL. Level 3 — offices + currency conversion.
+/// Central register: list storage, IDs, sorting, search, and statistics (Levels 1–4).
 /// </summary>
 public class AssetManager
 {
     private readonly List<Asset> _assets = new();
     private readonly CurrencyService _currencyService;
+    private int _nextId = 1;
 
     public AssetManager(CurrencyService currencyService)
     {
@@ -24,9 +25,12 @@ public class AssetManager
 
     public int Count => _assets.Count;
 
-    public void AddAsset(Asset asset) => _assets.Add(asset);
+    public int NextId => _nextId;
 
-    /// <summary>Level 3 — user enters USD; local price is calculated for the office currency.</summary>
+    public Asset? FindById(int id) => _assets.FirstOrDefault(a => a.Id == id);
+
+    private int AllocateId() => _nextId++;
+
     public Computer AddComputer(
         string brand,
         string model,
@@ -35,8 +39,9 @@ public class AssetManager
         OfficeLocation office,
         bool isLaptop)
     {
+        int id = AllocateId();
         decimal priceLocal = _currencyService.ConvertFromUsd(priceUsd, office);
-        Computer computer = new(brand, model, purchaseDate, priceUsd, priceLocal, office, isLaptop);
+        Computer computer = new(id, brand, model, purchaseDate, priceUsd, priceLocal, office, isLaptop);
         _assets.Add(computer);
         return computer;
     }
@@ -48,13 +53,19 @@ public class AssetManager
         decimal priceUsd,
         OfficeLocation office)
     {
+        int id = AllocateId();
         decimal priceLocal = _currencyService.ConvertFromUsd(priceUsd, office);
-        MobilePhone phone = new(brand, model, purchaseDate, priceUsd, priceLocal, office);
+        MobilePhone phone = new(id, brand, model, purchaseDate, priceUsd, priceLocal, office);
         _assets.Add(phone);
         return phone;
     }
 
-    /// <summary>Re-run conversion after refreshing live rates (Level 3).</summary>
+    public bool RemoveById(int id)
+    {
+        Asset? asset = FindById(id);
+        return asset is not null && _assets.Remove(asset);
+    }
+
     public void RecalculateAllLocalPrices()
     {
         foreach (Asset asset in _assets)
@@ -63,18 +74,25 @@ public class AssetManager
         }
     }
 
-    /// <summary>Level 2 — sort by asset type, then purchase date.</summary>
     public IEnumerable<Asset> GetSortedByTypeThenDate() =>
         _assets.OrderBy(a => a.GetAssetTypeKind()).ThenBy(a => a.PurchaseDate);
 
-    /// <summary>Level 3 — sort by office name, then purchase date.</summary>
     public IEnumerable<Asset> GetSortedByOfficeThenDate() =>
         _assets.OrderBy(a => a.OfficeDisplayName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(a => a.PurchaseDate);
 
+    public IEnumerable<Asset> SearchByBrandOrModel(string term)
+    {
+        string needle = term.Trim();
+        return _assets.Where(a =>
+            a.Brand.Contains(needle, StringComparison.OrdinalIgnoreCase) ||
+            a.Model.Contains(needle, StringComparison.OrdinalIgnoreCase));
+    }
+
     public void SeedSampleData()
     {
         _assets.Clear();
+        _nextId = 1;
 
         AddComputer("Apple", "MacBook Pro", new DateTime(2024, 3, 15), 1500m, OfficeLocation.Sweden, true);
         AddComputer("Lenovo", "ThinkPad", new DateTime(2023, 1, 10), 1200m, OfficeLocation.Usa, true);
@@ -89,8 +107,7 @@ public class AssetManager
         AddComputer("Dell", "OptiPlex", redDemoPurchase, 700m, OfficeLocation.Usa, isLaptop: false);
         AddMobilePhone("Google", "Pixel", yellowDemoPurchase, 600m, OfficeLocation.Sweden);
 
-        ConsoleUiHelper.WriteSuccess(
-            "Sample assets loaded — prices converted to SEK / USD / TRY using current rates.");
+        ConsoleUiHelper.WriteSuccess("Sample assets loaded with IDs #1–#8.");
     }
 
     public void ShowSortedWithEndOfLifeHighlights(IEnumerable<Asset> sorted, string heading)
@@ -108,15 +125,66 @@ public class AssetManager
             return;
         }
 
-        int index = 1;
         foreach (Asset asset in list)
         {
-            ConsoleUiHelper.WriteAssetLine(asset, index);
-            index++;
+            ConsoleUiHelper.WriteAssetLine(asset);
         }
 
         ConsoleUiHelper.WriteSeparator();
         WriteEndOfLifeSummary(list);
+    }
+
+    /// <summary>Level 4 — summary counts using LINQ and polymorphic <see cref="Asset"/> list.</summary>
+    public void ShowStatistics()
+    {
+        if (!HasAssets)
+        {
+            ConsoleUiHelper.WriteWarning("No assets yet — add some or load sample data first.");
+            return;
+        }
+
+        Console.WriteLine();
+        ConsoleUiHelper.WriteTitle("Asset statistics");
+        ConsoleUiHelper.WriteSeparator();
+
+        int laptops = _assets.Count(a => a.GetAssetTypeKind() == AssetTypeKind.Laptop);
+        int desktops = _assets.Count(a => a.GetAssetTypeKind() == AssetTypeKind.Desktop);
+        int phones = _assets.Count(a => a.GetAssetTypeKind() == AssetTypeKind.MobilePhone);
+
+        Console.WriteLine($"  Total assets:     {Count}");
+        Console.WriteLine($"  Laptops:          {laptops}");
+        Console.WriteLine($"  Desktops:         {desktops}");
+        Console.WriteLine($"  Mobile phones:    {phones}");
+        Console.WriteLine($"  Total value USD:  {_assets.Sum(a => a.PriceUsd):N2}");
+        Console.WriteLine();
+
+        Asset? oldest = _assets.MinBy(a => a.PurchaseDate);
+        Asset? newest = _assets.MaxBy(a => a.PurchaseDate);
+
+        if (oldest is not null && newest is not null)
+        {
+            Console.WriteLine($"  Oldest purchase:  #{oldest.Id} ({oldest.PurchaseDate:yyyy-MM-dd})");
+            Console.WriteLine($"  Newest purchase:  #{newest.Id} ({newest.PurchaseDate:yyyy-MM-dd})");
+        }
+
+        int yellow = _assets.Count(a => a.GetEndOfLifeStatus() == EndOfLifeStatus.YellowWarning);
+        int red = _assets.Count(a => a.GetEndOfLifeStatus() == EndOfLifeStatus.RedWarning);
+        int expired = _assets.Count(a => a.GetEndOfLifeStatus() == EndOfLifeStatus.Expired);
+
+        Console.WriteLine();
+        Console.WriteLine($"  End-of-life yellow alerts: {yellow}");
+        Console.WriteLine($"  End-of-life red alerts:    {red}");
+        Console.WriteLine($"  Expired assets:            {expired}");
+        ConsoleUiHelper.WriteSeparator();
+    }
+
+    /// <summary>Polymorphic print — accepts interface, works for any <see cref="Asset"/> subclass.</summary>
+    public void ShowAssetDetails(ICompanyAsset asset)
+    {
+        Console.WriteLine();
+        ConsoleUiHelper.WriteTitle($"Asset details — #{asset.Id}");
+        ConsoleUiHelper.WriteInfo($"  {asset.ToDisplayLine()}");
+        Console.WriteLine();
     }
 
     private static void WriteEndOfLifeSummary(List<Asset> list)

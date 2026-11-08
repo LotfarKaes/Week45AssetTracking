@@ -1,16 +1,16 @@
 namespace Week45AssetTracking.Models;
 
 /// <summary>
-/// Base class for every company asset (Level 1).
-/// Level 2 adds lifespan, end-of-life checks, and sorting support.
+/// Abstract base for all hardware (Level 1). Level 4: implements <see cref="ICompanyAsset"/> and adds ID + age.
 /// </summary>
-public abstract class Asset
+public abstract class Asset : ICompanyAsset
 {
     /// <summary>Business rule from the assignment: every asset lasts 3 years.</summary>
     public const int LifespanYears = 3;
 
     /// <summary>Creates an asset with the common fields every device shares.</summary>
     protected Asset(
+        int id,
         string brand,
         string model,
         DateTime purchaseDate,
@@ -18,6 +18,7 @@ public abstract class Asset
         decimal priceLocal,
         OfficeLocation office)
     {
+        Id = id;
         Brand = brand;
         Model = model;
         PurchaseDate = purchaseDate;
@@ -25,6 +26,9 @@ public abstract class Asset
         PriceLocal = priceLocal;
         Office = office;
     }
+
+    /// <summary>Unique asset number assigned by <see cref="Services.AssetManager"/> (Level 4).</summary>
+    public int Id { get; set; }
 
     /// <summary>Manufacturer name, e.g. Apple or Samsung.</summary>
     public string Brand { get; set; }
@@ -55,6 +59,12 @@ public abstract class Asset
 
     /// <summary>Enum used for LINQ sorting by asset type (Level 2).</summary>
     public abstract AssetTypeKind GetAssetTypeKind();
+
+    /// <summary>Elapsed time since purchase (Level 4).</summary>
+    public TimeSpan Age => DateTime.Today - PurchaseDate.Date;
+
+    /// <summary>Friendly age text, e.g. "1 year, 3 months".</summary>
+    public string AgeDescription => FormatAge(Age);
 
     /// <summary>Last day the asset is considered in service (purchase date + 3 years).</summary>
     public DateTime EndOfLifeDate => PurchaseDate.AddYears(LifespanYears);
@@ -95,11 +105,42 @@ public abstract class Asset
     public virtual string ToDisplayLine()
     {
         return
-            $"{AssetType} | {Brand} {Model} | Office: {OfficeDisplayName} | " +
-            $"Purchased: {PurchaseDate:yyyy-MM-dd} | End-of-life: {EndOfLifeDate:yyyy-MM-dd} | " +
+            $"#{Id} | {AssetType} | {Brand} {Model} | Office: {OfficeDisplayName} | " +
+            $"Purchased: {PurchaseDate:yyyy-MM-dd} | Age: {AgeDescription} | " +
+            $"End-of-life: {EndOfLifeDate:yyyy-MM-dd} | " +
             $"USD {PriceUsd:N2} | {LocalCurrencyCode} {PriceLocal:N2}";
     }
 
     /// <inheritdoc />
     public override string ToString() => ToDisplayLine();
+
+    private static string FormatAge(TimeSpan age)
+    {
+        if (age.TotalDays < 0)
+        {
+            return "0 days";
+        }
+
+        int years = (int)(age.TotalDays / 365.25);
+        int months = (int)((age.TotalDays % 365.25) / 30.44);
+
+        if (years == 0 && months == 0)
+        {
+            int days = Math.Max(0, (int)age.TotalDays);
+            return days == 1 ? "1 day" : $"{days} days";
+        }
+
+        List<string> parts = new();
+        if (years > 0)
+        {
+            parts.Add(years == 1 ? "1 year" : $"{years} years");
+        }
+
+        if (months > 0)
+        {
+            parts.Add(months == 1 ? "1 month" : $"{months} months");
+        }
+
+        return string.Join(", ", parts);
+    }
 }

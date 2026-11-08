@@ -1,80 +1,66 @@
-# Week 4–5 — Asset Tracking System (Levels 1–3)
+# Week 4–5 — Asset Tracking System (Levels 1–4)
 
 Console application in **C#** and **.NET 8** for the *Weekly Mini Project — Asset Tracking* assignment.
 
-**Current milestone:** Levels **1**, **2**, and **3**. Push each level as its own git commit. Level 4 (IDs, menu) is next.
+**Current milestone:** through **Level 4**. Push each level as its own commit. **Level 5** (JSON files) is next.
 
 ---
 
-## Prerequisites
+## Run
 
 ```bash
 dotnet run
 ```
 
-(from this folder, with [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) installed)
-
 ---
 
 ## Progress
 
-| Level | Status | Summary |
-|-------|--------|---------|
-| **1** | Done | Classes, `List<Asset>`, constructors |
+| Level | Status | Highlights |
+|-------|--------|------------|
+| **1** | Done | `Asset`, `Computer`, `MobilePhone`, `List<Asset>` |
 | **2** | Done | Sort by type + date, end-of-life colors |
-| **3** | Done | Offices SEK/USD/TRY, USD → local conversion, sort by office |
-| **4** | Next | Unique IDs, age, menu system |
-| **5** | Planned | JSON persistence |
+| **3** | Done | Offices, USD → SEK/USD/TRY, sort by office |
+| **4** | Done | **Unique IDs**, **age**, **menu**, interface + abstract base |
+| **5** | Next | Save/load JSON, export report |
 
 ---
 
-## Level 3 — Multi-office & currency
+## Level 4 — OOP design, IDs, age, menu
 
-### Offices
+### OOP (assignment requirements)
 
-| Office | Currency |
-|--------|----------|
-| Sweden | SEK |
-| USA | USD |
-| Turkey | TRY |
+| Concept | In this project |
+|---------|------------------|
+| **Abstract class** | `Asset` — shared fields and end-of-life logic |
+| **Inheritance** | `Computer`, `MobilePhone` extend `Asset` |
+| **Polymorphism** | `List<Asset>` holds different types; `ICompanyAsset` for display/search |
+| **Interface** | `ICompanyAsset` — `Id`, `AssetType`, `AgeDescription`, `ToDisplayLine()` |
 
-Each asset is linked to an `OfficeLocation` enum value (not a free-text string).
+### Unique asset ID
 
-### Currency conversion
+- Every new asset gets `#1`, `#2`, … from `AssetManager` (`_nextId`).
+- Shown on each line and used for view / edit / remove.
 
-1. You enter **price in USD** when adding an asset.
-2. `CurrencyService` converts to the office currency:
-   - **Live rates:** ECB daily XML (same idea as `LiveCurrency.cs` in the course pack).
-   - **Fallback:** built-in rates if the network fails (app still runs offline).
+### Age calculation
 
-After adding, the app shows the calculated local amount, e.g. `SEK 15,750.00`.
+- `TimeSpan Age` — days since purchase.
+- `AgeDescription` — e.g. `1 year, 2 months` (uses `DateTime` + `TimeSpan`).
 
-### Sorting (Level 3 requirement)
+### Menu system
 
-```csharp
-_assets.OrderBy(a => a.OfficeDisplayName).ThenBy(a => a.PurchaseDate)
-```
-
-Choose **option 2** (or **3**) in the view menu after adding assets.
-
-Level **2** sort (type → date) stays available as **option 1**.
-
-### Refresh rates
-
-When asked, the app can **re-download** ECB rates and **recalculate** every `PriceLocal` from stored USD values.
-
----
-
-## Level 2 recap
-
-- 3-year lifespan, **yellow** (&lt; 3 months), **red** (&lt; 6 months), expired styling.
-- Sort: `AssetTypeKind` → purchase date.
-
----
-
-## Level 1 recap
-
-- `Asset`, `Computer`, `MobilePhone`, properties from the PDF.
+| # | Action |
+|---|--------|
+| 1 | Add asset |
+| 2 | View — sort by **type → date** (Level 2) |
+| 3 | View — sort by **office → date** (Level 3) |
+| 4 | Search brand/model |
+| 5 | View details by **ID** |
+| 6 | Edit by **ID** |
+| 7 | Remove by **ID** |
+| 8 | Statistics |
+| 9 | Refresh currency rates |
+| 0 | Exit (`exit` works on any prompt too) |
 
 ---
 
@@ -82,55 +68,51 @@ When asked, the app can **re-download** ECB rates and **recalculate** every `Pri
 
 ```
 Week45AssetTracking/
-├── Program.cs
+├── Program.cs                 # Menu loop (Level 4)
 ├── Models/
-│   ├── Asset.cs
-│   ├── OfficeLocation.cs      # Level 3
-│   ├── OfficeInfo.cs
-│   ├── AssetTypeKind.cs
-│   ├── EndOfLifeStatus.cs
+│   ├── ICompanyAsset.cs       # Level 4 interface
+│   ├── Asset.cs               # Abstract base + age + ID
 │   ├── Computer.cs
-│   └── MobilePhone.cs
+│   ├── MobilePhone.cs
+│   └── … (office, EOL enums from earlier levels)
 ├── Services/
-│   ├── AssetManager.cs
-│   └── CurrencyService.cs     # Level 3
+│   ├── AssetManager.cs        # IDs, search, stats
+│   └── CurrencyService.cs
 └── Helpers/
     ├── ConsoleUiHelper.cs
-    └── InputHelper.cs         # ReadOfficeLocation()
+    └── InputHelper.cs
 ```
 
 ---
 
-## Test Level 3 (grading checklist)
+## Test Level 4
 
-1. Run with **sample data** — verify **SEK**, **USD**, **TRY** labels on each line.
-2. Add a asset for **Turkey**, USD `900` — confirm **TRY** local price appears.
-3. View list with **option 2** — assets grouped by **Sweden → Turkey → USA** (alphabetical office names).
-4. Answer **y** to refresh rates — local prices update (or fallback message if offline).
-5. Type **exit** during office selection — clean shutdown.
+1. Load **sample data** — IDs `#1`–`#8`.
+2. Menu **1** — add asset; note new ID (e.g. `#9`).
+3. Menu **5** — view `#1`; check **Age** in output.
+4. Menu **4** — search `Apple`.
+5. Menu **8** — statistics.
+6. Menu **0** or type **exit** at a prompt.
 
 ---
 
-## Git — Level 3 commit
+## Git — Level 4 commit
 
 ```bash
 git add Week45AssetTracking/
-git commit -m "Week45 Level 3: offices SEK/USD/TRY, currency conversion, sort by office"
+git commit -m "Week45 Level 4: unique IDs, age, ICompanyAsset, menu system"
 git push
 ```
 
 ---
 
-## Troubleshooting
+## Earlier levels (still included)
 
-| Issue | Fix |
-|-------|-----|
-| Live rates fail | Normal offline — fallback rates still convert. |
-| USA local equals USD | Expected: USD office uses 1:1. |
-| No colors | Use Windows Terminal. |
+- **Level 2:** 3-year lifespan, yellow/red EOL lines, type sort.  
+- **Level 3:** `OfficeLocation`, `CurrencyService`, office sort.  
 
 ---
 
-**Author:** Lotfar Kaes — Asset Tracking, Levels 1–3.
+**Author:** Lotfar Kaes — Asset Tracking, Levels 1–4.
 
-Reply **Level 4** when this commit is pushed.
+Say **Level 5** when ready for JSON save/load.

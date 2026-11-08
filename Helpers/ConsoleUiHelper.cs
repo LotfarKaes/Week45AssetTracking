@@ -51,11 +51,10 @@ public static class ConsoleUiHelper
     /// <summary>
     /// Level 2 — prints one asset with yellow/red/magenta styling when end-of-life is near.
     /// </summary>
-    public static void WriteAssetLine(Asset asset, int? listIndex = null)
+    public static void WriteAssetLine(Asset asset)
     {
         EndOfLifeStatus status = asset.GetEndOfLifeStatus();
-        string prefix = listIndex.HasValue ? $"  {listIndex}. " : "  ";
-        string line = prefix + asset.ToDisplayLine();
+        string line = "  " + asset.ToDisplayLine();
 
         string alert = status switch
         {
