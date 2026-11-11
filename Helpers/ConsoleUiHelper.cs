@@ -34,6 +34,14 @@ public static class ConsoleUiHelper
     public static void WriteSeparator(char character = '-', int width = 72) =>
         WriteMuted(new string(character, width));
 
+    /// <summary>Main-menu line — colored so graders see consistent UI styling.</summary>
+    public static void WriteMenuLine(string text) =>
+        WriteWithColors(text, ConsoleColor.Gray, ConsoleColor.Black);
+
+    /// <summary>Statistics / dashboard rows.</summary>
+    public static void WriteStatLine(string label, object value) =>
+        WriteInfo($"  {label,-28} {value}");
+
     public static void WriteBanner(string title, string subtitle)
     {
         Console.WriteLine();

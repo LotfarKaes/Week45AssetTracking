@@ -1,3 +1,5 @@
+using Week45AssetTracking.Helpers;
+
 namespace Week45AssetTracking.Models;
 
 /// <summary>
@@ -18,9 +20,9 @@ public static class OfficeInfo
 
     public static void WriteOfficeMenu()
     {
-        Console.WriteLine("  1 - Sweden (SEK)");
-        Console.WriteLine("  2 - USA (USD)");
-        Console.WriteLine("  3 - Turkey (TRY)");
+        ConsoleUiHelper.WriteMenuLine("  1 - Sweden (SEK)");
+        ConsoleUiHelper.WriteMenuLine("  2 - USA (USD)");
+        ConsoleUiHelper.WriteMenuLine("  3 - Turkey (TRY)");
     }
 
     /// <summary>

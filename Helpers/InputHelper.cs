@@ -78,6 +78,27 @@ public static class InputHelper
         }
     }
 
+    /// <summary>Required text (brand, model, search) — cannot be empty, like category validation in Product List.</summary>
+    public static string? ReadRequiredText(string prompt)
+    {
+        while (true)
+        {
+            string? text = ReadLineOrExit(prompt);
+            if (text is null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                ConsoleUiHelper.WriteWarning("This field is required — please enter a value (or type exit).");
+                continue;
+            }
+
+            return text.Trim();
+        }
+    }
+
     public static decimal ReadPositiveDecimal(string prompt)
     {
         while (true)
@@ -210,7 +231,7 @@ public static class InputHelper
     public static void PressEnterToContinue()
     {
         Console.WriteLine();
-        Console.Write("Press Enter to continue...");
+        ConsoleUiHelper.WriteMuted("Press Enter to continue...");
         Console.ReadLine();
         Console.WriteLine();
     }

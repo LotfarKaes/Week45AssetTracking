@@ -37,7 +37,7 @@ bool running = true;
 while (running && !InputHelper.ExitRequested)
 {
     PrintMainMenu();
-    int choice = InputHelper.ReadMainMenuChoice(0, 12);
+    int choice = InputHelper.ReadMainMenuChoice(0, 13);
 
     if (InputHelper.ExitRequested || choice == 0)
     {
@@ -97,6 +97,12 @@ while (running && !InputHelper.ExitRequested)
             break;
         case 12:
             HandleExportReport(manager, fileService);
+            InputHelper.PressEnterToContinue();
+            break;
+        case 13:
+            manager.ShowSortedWithEndOfLifeHighlights(
+                manager.GetSortedByPriceUsd(),
+                "Sorted by price (USD), low → high");
             InputHelper.PressEnterToContinue();
             break;
     }
@@ -214,19 +220,20 @@ static void PrintMainMenu()
 {
     Console.WriteLine();
     ConsoleUiHelper.WriteTitle("Main menu");
-    Console.WriteLine("  1  - Add asset (computer or phone)");
-    Console.WriteLine("  2  - View all — sort by type → date      [Level 2]");
-    Console.WriteLine("  3  - View all — sort by office → date    [Level 3]");
-    Console.WriteLine("  4  - Search by brand or model");
-    Console.WriteLine("  5  - View asset details by ID            [Level 4]");
-    Console.WriteLine("  6  - Edit asset by ID");
-    Console.WriteLine("  7  - Remove asset by ID");
-    Console.WriteLine("  8  - Statistics dashboard");
-    Console.WriteLine("  9  - Refresh currency rates");
-    Console.WriteLine(" 10  - Save catalog to JSON               [Level 5]");
-    Console.WriteLine(" 11  - Load catalog from JSON");
-    Console.WriteLine(" 12  - Export text report");
-    Console.WriteLine("  0  - Exit (auto-saves on quit)");
+    ConsoleUiHelper.WriteMenuLine("  1  - Add asset (computer or phone)");
+    ConsoleUiHelper.WriteMenuLine("  2  - View all — sort by type → date      ");
+    ConsoleUiHelper.WriteMenuLine("  3  - View all — sort by office → date    ");
+    ConsoleUiHelper.WriteMenuLine("  4  - Search (brand / model / office)");
+    ConsoleUiHelper.WriteMenuLine("  5  - View asset details by ID            ");
+    ConsoleUiHelper.WriteMenuLine("  6  - Edit asset by ID");
+    ConsoleUiHelper.WriteMenuLine("  7  - Remove asset by ID");
+    ConsoleUiHelper.WriteMenuLine("  8  - Statistics dashboard");
+    ConsoleUiHelper.WriteMenuLine("  9  - Refresh currency rates");
+    ConsoleUiHelper.WriteMenuLine(" 10  - Save catalog to JSON               ");
+    ConsoleUiHelper.WriteMenuLine(" 11  - Load catalog from JSON");
+    ConsoleUiHelper.WriteMenuLine(" 12  - Export text report");
+    ConsoleUiHelper.WriteMenuLine(" 13  - View all — sort by price (USD) + total");
+    ConsoleUiHelper.WriteMenuLine("  0  - Exit (auto-saves on quit)");
     Console.WriteLine();
 }
 
@@ -235,8 +242,8 @@ static void PrintMainMenu()
 static void HandleAddAsset(AssetManager manager, AssetFileService fileService)
 {
     ConsoleUiHelper.WriteTitle("Add asset");
-    Console.WriteLine("  1 - Computer (laptop / desktop)");
-    Console.WriteLine("  2 - Mobile phone");
+    ConsoleUiHelper.WriteMenuLine("  1 - Computer (laptop / desktop)");
+    ConsoleUiHelper.WriteMenuLine("  2 - Mobile phone");
     Console.WriteLine();
 
     int kind = InputHelper.ReadChoice(1, 2);
@@ -259,13 +266,13 @@ static void HandleAddAsset(AssetManager manager, AssetFileService fileService)
 
 static void TryAddComputer(AssetManager manager, AssetFileService fileService)
 {
-    string? brand = InputHelper.ReadLineOrExit("Brand: ");
+    string? brand = InputHelper.ReadRequiredText("Brand: ");
     if (brand is null)
     {
         return;
     }
 
-    string? model = InputHelper.ReadLineOrExit("Model: ");
+    string? model = InputHelper.ReadRequiredText("Model: ");
     if (model is null)
     {
         return;
@@ -296,8 +303,20 @@ static void TryAddComputer(AssetManager manager, AssetFileService fileService)
         return;
     }
 
-    Computer computer = manager.AddComputer(
-        brand, model, purchaseDate, priceUsd, office, isLaptop: form == 1);
+    if (!manager.TryAddComputer(
+            brand,
+            model,
+            purchaseDate,
+            priceUsd,
+            office,
+            isLaptop: form == 1,
+            out Computer? computer,
+            out string error) ||
+        computer is null)
+    {
+        ConsoleUiHelper.WriteError(error);
+        return;
+    }
 
     ConsoleUiHelper.WriteSuccess(
         $"Saved as #{computer.Id}. Local: {computer.LocalCurrencyCode} {computer.PriceLocal:N2} | Age: {computer.AgeDescription}");
@@ -307,13 +326,13 @@ static void TryAddComputer(AssetManager manager, AssetFileService fileService)
 
 static void TryAddMobilePhone(AssetManager manager, AssetFileService fileService)
 {
-    string? brand = InputHelper.ReadLineOrExit("Brand: ");
+    string? brand = InputHelper.ReadRequiredText("Brand: ");
     if (brand is null)
     {
         return;
     }
 
-    string? model = InputHelper.ReadLineOrExit("Model: ");
+    string? model = InputHelper.ReadRequiredText("Model: ");
     if (model is null)
     {
         return;
@@ -337,7 +356,19 @@ static void TryAddMobilePhone(AssetManager manager, AssetFileService fileService
         return;
     }
 
-    MobilePhone phone = manager.AddMobilePhone(brand, model, purchaseDate, priceUsd, office);
+    if (!manager.TryAddMobilePhone(
+            brand,
+            model,
+            purchaseDate,
+            priceUsd,
+            office,
+            out MobilePhone? phone,
+            out string error) ||
+        phone is null)
+    {
+        ConsoleUiHelper.WriteError(error);
+        return;
+    }
 
     ConsoleUiHelper.WriteSuccess(
         $"Saved as #{phone.Id}. Local: {phone.LocalCurrencyCode} {phone.PriceLocal:N2} | Age: {phone.AgeDescription}");
@@ -347,15 +378,74 @@ static void TryAddMobilePhone(AssetManager manager, AssetFileService fileService
 
 static void HandleSearch(AssetManager manager)
 {
-    string? term = InputHelper.ReadLineOrExit("Search (brand or model): ");
-    if (term is null)
+    ConsoleUiHelper.WriteTitle("Search assets");
+    ConsoleUiHelper.WriteMenuLine("  1 - By brand (FindByBrand)");
+    ConsoleUiHelper.WriteMenuLine("  2 - By model (FindByModel)");
+    ConsoleUiHelper.WriteMenuLine("  3 - By office (GetAssetsByOffice)");
+    ConsoleUiHelper.WriteMenuLine("  4 - Brand or model (combined)");
+    Console.WriteLine();
+
+    int mode = InputHelper.ReadChoice(1, 4);
+    if (InputHelper.ExitRequested)
     {
         return;
     }
 
-    manager.ShowSortedWithEndOfLifeHighlights(
-        manager.SearchByBrandOrModel(term),
-        $"Search results for \"{term}\"");
+    IEnumerable<Asset> results;
+    string heading;
+
+    switch (mode)
+    {
+        case 1:
+            string? brand = InputHelper.ReadRequiredText("Brand text: ");
+            if (brand is null)
+            {
+                return;
+            }
+
+            results = manager.FindByBrand(brand);
+            heading = $"Assets matching brand \"{brand}\"";
+            break;
+        case 2:
+            string? model = InputHelper.ReadRequiredText("Model text: ");
+            if (model is null)
+            {
+                return;
+            }
+
+            results = manager.FindByModel(model);
+            heading = $"Assets matching model \"{model}\"";
+            break;
+        case 3:
+            OfficeLocation office = InputHelper.ReadOfficeLocation();
+            if (InputHelper.ExitRequested)
+            {
+                return;
+            }
+
+            results = manager.GetAssetsByOffice(office);
+            heading = $"Assets in office {OfficeInfo.GetDisplayName(office)}";
+            break;
+        default:
+            string? term = InputHelper.ReadRequiredText("Search text: ");
+            if (term is null)
+            {
+                return;
+            }
+
+            results = manager.SearchByBrandOrModel(term);
+            heading = $"Search results for \"{term}\"";
+            break;
+    }
+
+    if (!results.Any())
+    {
+        ConsoleUiHelper.WriteWarning("No assets matched your search — try another word or office.");
+    }
+    else
+    {
+        manager.ShowSortedWithEndOfLifeHighlights(results, heading);
+    }
 
     InputHelper.PressEnterToContinue();
 }
@@ -409,6 +499,12 @@ static void HandleEditById(AssetManager manager, AssetFileService fileService)
     {
         asset.Brand = brand.Trim();
     }
+    else if (string.IsNullOrWhiteSpace(asset.Brand))
+    {
+        ConsoleUiHelper.WriteError("Brand cannot be empty.");
+        InputHelper.PressEnterToContinue();
+        return;
+    }
 
     string? model = InputHelper.ReadLineOrExit($"Model [{asset.Model}]: ", allowEmpty: true);
     if (model is null)
@@ -419,6 +515,12 @@ static void HandleEditById(AssetManager manager, AssetFileService fileService)
     if (!string.IsNullOrWhiteSpace(model))
     {
         asset.Model = model.Trim();
+    }
+    else if (string.IsNullOrWhiteSpace(asset.Model))
+    {
+        ConsoleUiHelper.WriteError("Model cannot be empty.");
+        InputHelper.PressEnterToContinue();
+        return;
     }
 
     string? dateText = InputHelper.ReadLineOrExit(

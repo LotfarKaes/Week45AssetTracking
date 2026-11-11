@@ -154,6 +154,50 @@ public class AssetManager
         };
     }
 
+    /// <summary>
+    /// Validates input before add (avoids empty brand/model — same idea as requiring product category).
+    /// </summary>
+    public bool TryAddComputer(
+        string brand,
+        string model,
+        DateTime purchaseDate,
+        decimal priceUsd,
+        OfficeLocation office,
+        bool isLaptop,
+        out Computer? computer,
+        out string errorMessage)
+    {
+        if (!TryValidateAssetFields(brand, model, priceUsd, out errorMessage))
+        {
+            computer = null;
+            return false;
+        }
+
+        computer = AddComputer(brand.Trim(), model.Trim(), purchaseDate, priceUsd, office, isLaptop);
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    public bool TryAddMobilePhone(
+        string brand,
+        string model,
+        DateTime purchaseDate,
+        decimal priceUsd,
+        OfficeLocation office,
+        out MobilePhone? phone,
+        out string errorMessage)
+    {
+        if (!TryValidateAssetFields(brand, model, priceUsd, out errorMessage))
+        {
+            phone = null;
+            return false;
+        }
+
+        phone = AddMobilePhone(brand.Trim(), model.Trim(), purchaseDate, priceUsd, office);
+        errorMessage = string.Empty;
+        return true;
+    }
+
     public Computer AddComputer(
         string brand,
         string model,
@@ -181,6 +225,34 @@ public class AssetManager
         MobilePhone phone = new(id, brand, model, purchaseDate, priceUsd, priceLocal, office);
         _assets.Add(phone);
         return phone;
+    }
+
+    private static bool TryValidateAssetFields(
+        string brand,
+        string model,
+        decimal priceUsd,
+        out string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(brand))
+        {
+            errorMessage = "Brand cannot be empty — every asset must have a manufacturer name.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            errorMessage = "Model cannot be empty — please enter the product model.";
+            return false;
+        }
+
+        if (priceUsd < 0)
+        {
+            errorMessage = "Price cannot be negative.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
     }
 
     public bool RemoveById(int id)
@@ -211,6 +283,37 @@ public class AssetManager
             a.Brand.Contains(needle, StringComparison.OrdinalIgnoreCase) ||
             a.Model.Contains(needle, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>LINQ helper — used by search menu (wired from Program, not dead code).</summary>
+    public IReadOnlyList<Asset> FindByBrand(string brandPart)
+    {
+        string needle = brandPart.Trim();
+        return _assets
+            .Where(a => a.Brand.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Brand, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.Model, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>LINQ helper — used by search menu.</summary>
+    public IReadOnlyList<Asset> FindByModel(string modelPart)
+    {
+        string needle = modelPart.Trim();
+        return _assets
+            .Where(a => a.Model.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Model, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>LINQ helper — assets for one office (Level 3).</summary>
+    public IReadOnlyList<Asset> GetAssetsByOffice(OfficeLocation office) =>
+        _assets.Where(a => a.Office == office).OrderBy(a => a.PurchaseDate).ToList();
+
+    /// <summary>Sort by purchase price in USD (low → high), like Product List sort by price.</summary>
+    public IEnumerable<Asset> GetSortedByPriceUsd() =>
+        _assets.OrderBy(a => a.PriceUsd).ThenBy(a => a.Brand);
+
+    public decimal CalculateTotalPriceUsd() => _assets.Sum(a => a.PriceUsd);
 
     public void SeedSampleData()
     {
@@ -255,6 +358,10 @@ public class AssetManager
 
         ConsoleUiHelper.WriteSeparator();
         WriteEndOfLifeSummary(list);
+
+        decimal totalUsd = list.Sum(a => a.PriceUsd);
+        ConsoleUiHelper.WriteSuccess(
+            $"Total value (USD) for this list: {totalUsd:N2}");
     }
 
     /// <summary>Level 4 — summary counts using LINQ and polymorphic <see cref="Asset"/> list.</summary>
@@ -274,11 +381,11 @@ public class AssetManager
         int desktops = _assets.Count(a => a.GetAssetTypeKind() == AssetTypeKind.Desktop);
         int phones = _assets.Count(a => a.GetAssetTypeKind() == AssetTypeKind.MobilePhone);
 
-        Console.WriteLine($"  Total assets:     {Count}");
-        Console.WriteLine($"  Laptops:          {laptops}");
-        Console.WriteLine($"  Desktops:         {desktops}");
-        Console.WriteLine($"  Mobile phones:    {phones}");
-        Console.WriteLine($"  Total value USD:  {_assets.Sum(a => a.PriceUsd):N2}");
+        ConsoleUiHelper.WriteStatLine("Total assets:", Count);
+        ConsoleUiHelper.WriteStatLine("Laptops:", laptops);
+        ConsoleUiHelper.WriteStatLine("Desktops:", desktops);
+        ConsoleUiHelper.WriteStatLine("Mobile phones:", phones);
+        ConsoleUiHelper.WriteStatLine("Total value (USD):", $"{CalculateTotalPriceUsd():N2}");
         Console.WriteLine();
 
         Asset? oldest = _assets.MinBy(a => a.PurchaseDate);
@@ -286,8 +393,8 @@ public class AssetManager
 
         if (oldest is not null && newest is not null)
         {
-            Console.WriteLine($"  Oldest purchase:  #{oldest.Id} ({oldest.PurchaseDate:yyyy-MM-dd})");
-            Console.WriteLine($"  Newest purchase:  #{newest.Id} ({newest.PurchaseDate:yyyy-MM-dd})");
+            ConsoleUiHelper.WriteStatLine("Oldest purchase:", $"#{oldest.Id} ({oldest.PurchaseDate:yyyy-MM-dd})");
+            ConsoleUiHelper.WriteStatLine("Newest purchase:", $"#{newest.Id} ({newest.PurchaseDate:yyyy-MM-dd})");
         }
 
         int yellow = _assets.Count(a => a.GetEndOfLifeStatus() == EndOfLifeStatus.YellowWarning);
@@ -295,9 +402,9 @@ public class AssetManager
         int expired = _assets.Count(a => a.GetEndOfLifeStatus() == EndOfLifeStatus.Expired);
 
         Console.WriteLine();
-        Console.WriteLine($"  End-of-life yellow alerts: {yellow}");
-        Console.WriteLine($"  End-of-life red alerts:    {red}");
-        Console.WriteLine($"  Expired assets:            {expired}");
+        ConsoleUiHelper.WriteWarning($"End-of-life yellow alerts: {yellow}");
+        ConsoleUiHelper.WriteWarning($"End-of-life red alerts:    {red}");
+        ConsoleUiHelper.WriteError($"Expired assets:            {expired}");
         ConsoleUiHelper.WriteSeparator();
     }
 
